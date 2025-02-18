@@ -1,0 +1,151 @@
+﻿@page "/counter"
+@inject HttpClient Http
+
+<style>
+    .card {
+        background: rgba(255, 255, 255, 0.1);
+        box-shadow: 0 8px 32px 0 rgba(31, 38, 135, 0.37);
+        backdrop-filter: blur(3px);
+        -webkit-backdrop-filter: blur(3px);
+        border-radius: 10px;
+        border: 1px solid rgba(255, 255, 255, 0.18);
+        font-family: "JetBrains Mono",monospace;
+    }
+</style>
+
+<h3 class="text-center my-4">Top 5 Cities Weather Forecast</h3>
+
+@if (weatherForecasts == null)
+{
+    <p class="text-center"><em>Loading...</em></p>
+}
+else
+{
+    <div class="row justify-content-center">
+        @foreach (var forecast in weatherForecasts)
+        {
+            <div class="col-md-3 mb-4">
+                <div class="card">
+                    <div class="card-body text-center">
+                        <h5 class="card-title">@forecast.CityName</h5>
+                        <div class="weather-icon" style="font-size: 40px;">
+                            @GetEmoji(forecast.Description)
+                        </div>
+                        <p class="card-text">
+                            <strong>Weather:</strong> @forecast.Description <br />
+                            <strong>Temperature:</strong> @forecast.Temperature°C <br />
+                            <strong>Wind Speed:</strong> @forecast.WindSpeed m/s <br />
+                            <strong>Humidity:</strong> @forecast.Humidity% <br />
+                            <strong>Precipitation:</strong> @forecast.Precipitation mm
+                        </p>
+                    </div>
+                </div>
+            </div>
+        }
+    </div>
+}
+
+@code {
+    private List<CityWeatherForecast> weatherForecasts;
+
+    protected override async Task OnInitializedAsync()
+    {
+        var cities = new List<string> { "New York", "London", "Tokyo", "Sydney", "Paris" };
+        weatherForecasts = new List<CityWeatherForecast>();
+
+        foreach (var city in cities)
+        {
+            var forecast = await GetWeatherForecastAsync(city);
+            if (forecast != null)
+            {
+                weatherForecasts.Add(forecast);
+            }
+        }
+    }
+
+    private async Task<CityWeatherForecast> GetWeatherForecastAsync(string city)
+    {
+        var apiKey = "2ec08aee31ba26883c82779462e6202f";
+        var url = $"https://api.openweathermap.org/data/2.5/weather?q={city}&appid={apiKey}&units=metric";
+
+        try
+        {
+            var response = await Http.GetFromJsonAsync<WeatherApiResponse>(url);
+            if (response != null)
+            {
+                return new CityWeatherForecast
+                    {
+                        CityName = city,
+                        Temperature = response.Main.Temp,
+                        Description = response.Weather.FirstOrDefault()?.Description ?? "No description available",
+                        WindSpeed = response.Wind.Speed,
+                        Humidity = response.Main.Humidity,
+                        Precipitation = response.Rain?.OneHour ?? 0,
+                        WeatherIcon = response.Weather.FirstOrDefault()?.Icon
+                    };
+            }
+        }
+        catch (Exception ex)
+        {
+            Console.WriteLine($"Error fetching weather for {city}: {ex.Message}");
+        }
+
+        return null;
+    }
+
+    private string GetEmoji(string description)
+    {
+        return description.ToLower() switch
+        {
+            var d when d.Contains("clear") => "☀️",  // Clear sky
+            var d when d.Contains("cloud") => "☁️",  // Cloudy
+            var d when d.Contains("rain") => "🌧️",   // Rain
+            var d when d.Contains("snow") => "❄️",    // Snow
+            var d when d.Contains("storm") => "⛈️",   // Thunderstorm
+            var d when d.Contains("fog") => "🌫️",     // Fog
+            var d when d.Contains("wind") => "💨",     // Wind
+            _ => "🌈"                               // Default
+        };
+    }
+
+    public class CityWeatherForecast
+    {
+        public string CityName { get; set; }
+        public float Temperature { get; set; }
+        public string Description { get; set; }
+        public float WindSpeed { get; set; }
+        public int Humidity { get; set; }
+        public float Precipitation { get; set; }
+        public string WeatherIcon { get; set; }
+    }
+
+    public class WeatherApiResponse
+    {
+        public MainInfo Main { get; set; }
+        public List<WeatherInfo> Weather { get; set; }
+        public WindInfo Wind { get; set; }
+        public RainInfo Rain { get; set; }
+    }
+
+    public class MainInfo
+    {
+        public float Temp { get; set; }
+        public int Humidity { get; set; }
+    }
+
+    public class WeatherInfo
+    {
+        public string Description { get; set; }
+        public string Icon { get; set; }
+    }
+
+    public class WindInfo
+    {
+        public float Speed { get; set; }
+    }
+
+    public class RainInfo
+    {
+        public float OneHour { get; set; }
+    }
+}

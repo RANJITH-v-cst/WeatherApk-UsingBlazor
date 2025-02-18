@@ -1,0 +1,205 @@
+﻿@page "/"
+@using System.Text.Json.Serialization
+
+@inject HttpClient Http
+
+<style>
+    .current-weather-card, .forecast-card {
+        background: rgba(255, 255, 255, 0.1);
+        box-shadow: 0 8px 32px 0 rgba(31, 38, 135, 0.37);
+        backdrop-filter: blur(3px);
+        -webkit-backdrop-filter: blur(3px);
+        border-radius: 10px;
+        border: 1px solid rgba(255, 255, 255, 0.18);
+        font-family: "JetBrains Mono",monospace;
+    }
+
+    .button-30 {
+        align-items: center;
+        appearance: none;
+        background-color: #FCFCFD;
+        border-radius: 4px;
+        border-width: 0;
+        box-shadow: rgba(45, 35, 66, 0.4) 0 2px 4px,rgba(45, 35, 66, 0.3) 0 7px 13px -3px,#D6D6E7 0 -3px 0 inset;
+        box-sizing: border-box;
+        color: #36395A;
+        cursor: pointer;
+        display: inline-flex;
+        font-family: "JetBrains Mono",monospace;
+        height: 48px;
+        justify-content: center;
+        line-height: 1;
+        list-style: none;
+        overflow: hidden;
+        padding-left: 16px;
+        padding-right: 16px;
+        position: relative;
+        text-align: left;
+        text-decoration: none;
+        transition: box-shadow .15s,transform .15s;
+        user-select: none;
+        -webkit-user-select: none;
+        touch-action: manipulation;
+        white-space: nowrap;
+        will-change: box-shadow,transform;
+        font-size: 18px;
+    }
+
+        .button-30:focus {
+            box-shadow: #D6D6E7 0 0 0 1.5px inset, rgba(45, 35, 66, 0.4) 0 2px 4px, rgba(45, 35, 66, 0.3) 0 7px 13px -3px, #D6D6E7 0 -3px 0 inset;
+        }
+
+        .button-30:hover {
+            box-shadow: rgba(45, 35, 66, 0.4) 0 4px 8px, rgba(45, 35, 66, 0.3) 0 7px 13px -3px, #D6D6E7 0 -3px 0 inset;
+            transform: translateY(-2px);
+        }
+
+        .button-30:active {
+            box-shadow: #D6D6E7 0 3px 7px inset;
+            transform: translateY(2px);
+        }
+   
+
+    }
+</style>
+
+<div class="container my-5 d-flex flex-column justify-content-center align-items-center">
+    <div class="text-center mb-4">
+        <h2 class="display-4 text-primary" style="font-weight: bold;">Weather Forecast</h2>
+    </div>
+
+    <div class="d-flex justify-content-center mb-3 w-50">
+        <MudTextField @bind-Value="city" Label="Enter City" Variant="Variant.Filled" Class="mb-3 w-75" Style="border-radius: 20px; padding: 1px; color: white;" />
+    </div>
+
+    <div class="text-center mb-4">
+        <MudButton OnClick="GetWeather" Variant="Variant.Filled"  Class="mb-3 button-30">
+            Get Weather🔍
+        </MudButton>
+        @if (!string.IsNullOrEmpty(errorMessage))
+        {
+            <div class="alert alert-danger">@errorMessage</div>
+        }
+    </div>
+
+    @if (currentWeather != null)
+    {
+        <div class="card mb-4 shadow-lg current-weather-card">
+            <div class="card-body text-center">
+                <h4 class="card-title text-primary">Current Weather</h4>
+                <h3>@currentWeather.Main?.Temp°C</h3>
+                <img src="@currentWeatherIcon" alt="Weather Icon" width="70" height="70" />
+                <p class="card-text text-muted">@currentWeather.Weather?[0]?.Description</p>
+                <p><strong>Wind Speed:</strong> @currentWeather.Wind?.Speed m/s</p>
+                <p><strong>Humidity:</strong> @currentWeather.Main?.Humidity %</p>
+                <p><strong>Precipitation:</strong> @currentWeather.Precipitation 0 mm</p>
+                <p><strong>Date:</strong> @DateTime.Now.ToString("MMM dd, yyyy")</p>
+            </div>
+        </div>
+    }
+
+    @if (forecastData?.List != null && forecastData.List.Count > 0)
+    {
+        <div class="d-flex overflow-auto">
+            @foreach (var item in GetForecastByDay(forecastData.List))
+            {
+                <div class="card border-light shadow-lg forecast-card" style="width: 200px; margin-right: 15px;">
+                    <div class="card-body text-center">
+                        <h5 class="card-title text-primary">@item.Date.ToString("MMM dd")</h5>
+                        <img src="@GetWeatherIconUrl(item)" alt="Weather Icon" width="70" height="70" />
+                        <p class="card-text mt-3" style="font-size: 18px; font-weight: bold;">@item.Main?.Temp°C</p>
+                        <p>@item.Weather?.FirstOrDefault()?.Description</p>
+                        <p><strong>Humidity:</strong> @item.Main?.Humidity %</p>
+                        <p><strong>Precipitation:</strong> @item.Precipitation 0 mm</p>
+                    </div>
+                </div>
+            }
+        </div>
+    }
+</div>
+
+@code {
+    private string city = "";
+    private WeatherResponse? currentWeather;
+    private ForecastResponse? forecastData;
+    private string? currentWeatherIcon;
+    private string? errorMessage;
+
+    private async Task GetWeather()
+    {
+        try
+        {
+            if (string.IsNullOrWhiteSpace(city))
+            {
+                errorMessage = "Please enter a city name.";
+                return;
+            }
+
+            string apiKey = "2ec08aee31ba26883c82779462e6202f";
+            string currentWeatherUrl = $"https://api.openweathermap.org/data/2.5/weather?q={city}&appid={apiKey}&units=metric";
+            currentWeather = await Http.GetFromJsonAsync<WeatherResponse>(currentWeatherUrl);
+            currentWeatherIcon = $"https://openweathermap.org/img/wn/{currentWeather.Weather[0].Icon}@2x.png";
+
+            string forecastUrl = $"https://api.openweathermap.org/data/2.5/forecast?q={city}&appid={apiKey}&units=metric";
+            forecastData = await Http.GetFromJsonAsync<ForecastResponse>(forecastUrl);
+
+            errorMessage = null;
+        }
+        catch
+        {
+            errorMessage = "Error fetching weather data.";
+        }
+    }
+
+    private List<ForecastItem> GetForecastByDay(List<ForecastItem> forecastList)
+    {
+        return forecastList.GroupBy(f => DateTime.Parse(f.DtTxtRaw).Date).Take(5).Select(g => g.First()).ToList();
+    }
+
+    private string GetWeatherIconUrl(ForecastItem item)
+    {
+        return $"https://openweathermap.org/img/wn/{item.Weather.FirstOrDefault()?.Icon}@2x.png";
+    }
+
+    private class WeatherResponse
+    {
+        public MainData? Main { get; set; }
+        public List<WeatherInfo>? Weather { get; set; }
+        public WindInfo? Wind { get; set; }
+        public float? Precipitation { get; set; }
+    }
+
+    private class ForecastResponse
+    {
+        [JsonPropertyName("list")]
+        public List<ForecastItem> List { get; set; } = new();
+    }
+
+    private class ForecastItem
+    {
+        public MainData? Main { get; set; }
+        public List<WeatherInfo>? Weather { get; set; }
+        public WindInfo? Wind { get; set; }
+        public float? Precipitation { get; set; }
+        [JsonPropertyName("dt_txt")]
+        public string DtTxtRaw { get; set; } = "";
+        public DateTime Date => DateTime.Parse(DtTxtRaw).Date;
+    }
+
+    private class MainData
+    {
+        public float Temp { get; set; }
+        public float Humidity { get; set; }
+    }
+
+    private class WeatherInfo
+    {
+        public string Description { get; set; } = "";
+        public string Icon { get; set; } = "";
+    }
+
+    private class WindInfo
+    {
+        public float Speed { get; set; }
+    }
+}

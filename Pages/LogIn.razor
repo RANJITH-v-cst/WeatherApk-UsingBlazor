@@ -1,0 +1,125 @@
+﻿@page "/register"
+@inject NavigationManager Nav
+@inject SupabaseClient supabase
+@inject HttpClient Http
+
+<div class="login-container">
+    <MudCard Class="login-card">
+        <MudCardContent>
+            <MudText Typo="Typo.h4" Class="mb-4" Style="color:black; text-align: center; font-size: large;">Login</MudText>
+
+            @if (errorMessage != null)
+            {
+                <MudAlert Severity="Severity.Error"
+                          Variant="Variant.Filled"
+                          Class="mb-6">
+                    <MudText>@errorMessage</MudText>
+                </MudAlert>
+            }
+            <MudTextField @bind-Value="name"
+                          Label="Namel"
+                          Variant="Variant.Outlined"
+                          Class="mb-6"
+                          InputType="InputType.Text"
+                          Adornment="Adornment.Start"/>
+
+            <MudTextField @bind-Value="email"
+                          Label="Email"
+                          Variant="Variant.Outlined"
+                          Class="mb-6"
+                          InputType="InputType.Email"
+                          Adornment="Adornment.Start" />
+
+            <MudTextField @bind-Value="password"
+                          Label="Password"
+                          Variant="Variant.Outlined"
+                          Class="mb-8"
+                          InputType="InputType.Password"
+                          Adornment="Adornment.Start" />
+
+            <div class="d-flex gap-4 justify-center">
+                <MudButton Variant="Variant.Filled"
+                           Color="Color.Primary"
+                           Size="Size.Large"
+                           FullWidth="true"
+                           OnClick="LoginAs"
+                           Class="mb-2">
+                    Login
+                </MudButton>
+                <MudButton Variant="Variant.Filled"
+                           Color="Color.Secondary"
+                           Size="Size.Large"
+                           FullWidth="true"
+                           OnClick="SignUp"
+                           Class="mb-2">
+                    Sign Up
+                </MudButton>
+            </div>
+        </MudCardContent>
+    </MudCard>
+</div>
+
+<style>
+    .login-container {
+        display: flex;
+        justify-content: center;
+        align-items: flex-start;
+        height: 100vh;
+        padding-top: 50px;
+        font-family: "JetBrains Mono",monospace;
+       
+    }
+
+    .login-card {
+        width: 50%;
+        max-width: 500px;
+        padding: 20px;
+        border: none;
+        border-radius: 25px;
+        background-color: transparent;
+        backdrop-filter: blur(10px);
+        font-family: "JetBrains Mono",monospace;
+    }
+</style>
+
+@code {
+    private string name= "";
+    private string email = "";
+    private string password = "";
+    private string? errorMessage;
+
+    private async Task LoginAs()
+    {
+        try
+        {
+            var client = supabase.GetClient();
+            var session = await client.Auth.SignIn(email, password);
+            if (session != null)
+            {
+                Nav.NavigateTo("/");
+                
+            }
+        }
+        catch (Exception)
+        {
+            errorMessage = "Incorrect Credentials";
+        }
+    }
+
+    private async Task SignUp()
+    {
+        try
+        {
+            var client = supabase.GetClient();
+            var response = await client.Auth.SignUp(email, password, new SignUpOptions
+                {
+                    Data = new Dictionary<string, object> { { "name", name } } // Store name as metadata
+                });
+            errorMessage = "Signup successful! Please check your email.";
+        }
+        catch (Exception)
+        {
+            errorMessage = "Incorrect Credentials";
+        }
+    }
+}
